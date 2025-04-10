@@ -20,27 +20,27 @@ func FindBestPaths() {
 	// Select disjoint paths excluding the best path
 	bestStepDisjointPaths = append([][]string{bestStepPath}, selectDisjointPaths(remainingPaths, maxPaths-1)...)
 
-	// // Ensure that, besides the best path, additional paths have a unique first intermediate room.
-	// // In other words, the second, third, etc. paths should not start with the same room as bestStepPath.
-	// var uniqueFirstPaths [][]string
-	// uniqueFirstPaths = append(uniqueFirstPaths, bestStepPath)
-	// for _, path := range bestStepDisjointPaths[1:] {
-	// 	// path[1] is the first intermediate room after start.
-	// 	if path[1] != bestStepPath[1] {
-	// 		duplicate := false
-	// 		// Also check among already accepted paths to ensure uniqueness.
-	// 		for _, up := range uniqueFirstPaths {
-	// 			if up[1] == path[1] {
-	// 				duplicate = true
-	// 				break
-	// 			}
-	// 		}
-	// 		if !duplicate {
-	// 			uniqueFirstPaths = append(uniqueFirstPaths, path)
-	// 		}
-	// 	}
-	// }
-	// bestStepDisjointPaths = uniqueFirstPaths
+	// Ensure that, besides the best path, additional paths have a unique first intermediate room.
+	// In other words, the second, third, etc. paths should not start with the same room as bestStepPath.
+	var uniqueFirstPaths [][]string
+	uniqueFirstPaths = append(uniqueFirstPaths, bestStepPath)
+	for _, path := range bestStepDisjointPaths[1:] {
+		// path[1] is the first intermediate room after start.
+		if path[1] != bestStepPath[1] {
+			duplicate := false
+			// Also check among already accepted paths to ensure uniqueness.
+			for _, up := range uniqueFirstPaths {
+				if up[1] == path[1] {
+					duplicate = true
+					break
+				}
+			}
+			if !duplicate {
+				uniqueFirstPaths = append(uniqueFirstPaths, path)
+			}
+		}
+	}
+	bestStepDisjointPaths = uniqueFirstPaths
 
 	// Log the final ordered disjoint paths.
 	for i, path := range bestStepDisjointPaths {
