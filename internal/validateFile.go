@@ -2,6 +2,7 @@ package internal
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -13,7 +14,34 @@ func GetFile() string {
 		Log("insufficient arguments", "error")
 		os.Exit(0)
 	}
-	file := os.Args[1]
+
+	var (
+		file      string
+		fileFound = false
+	)
+
+	for _, arg := range os.Args[1:] {
+		switch arg {
+		case "-v", "--visualize":
+			visualizer = true
+
+		default:
+			if strings.HasPrefix(arg, "-") {
+				Log(fmt.Sprintf("unknown flag %q", arg), "error")
+				os.Exit(0)
+			}
+			if fileFound {
+				Log("too many positional arguments", "error")
+				os.Exit(0)
+			}
+			file = arg
+			fileFound = true
+		}
+	}
+	if !fileFound {
+		Log("no input file specified", "error")
+		os.Exit(0)
+	}
 	// check if file exists
 	_, err := os.Stat(file)
 	if err != nil {

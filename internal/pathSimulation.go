@@ -15,6 +15,11 @@ func Simulate() {
 		numPaths = len(bestStepDisjointPaths)
 	}
 
+	// Clamp to available paths
+	if numPaths > len(bestStepDisjointPaths) {
+		numPaths = len(bestStepDisjointPaths)
+	}
+
 	// Run the simulation using the selected paths
 	simulateAnts(bestStepDisjointPaths[:numPaths])
 }
@@ -133,7 +138,23 @@ func simulateAnts(paths [][]string) {
 			fmt.Sscanf(turnOutput[j], "L%d-", &id2)
 			return id1 < id2
 		})
-		fmt.Println(strings.Join(turnOutput, " "))
+		if visualizer {
+			// For every move string, parse it and append to allMoves.
+			for _, str := range turnOutput {
+				antID, toRoom := parseMove(str)
+				fromRoom := lastRoom[antID] // lookup where it was
+				allMoves = append(allMoves, Move{
+					Turn: turn,
+					Ant:  antID,
+					From: fromRoom,
+					To:   toRoom,
+				})
+				lastRoom[antID] = toRoom // update for next time
+			}
+		} else {
+			// Legacy behavior
+			fmt.Println(strings.Join(turnOutput, " "))
+		}
 
 		// If all ants have been spawned and none remain in transit, break early.
 		if nextAnt > ants && len(antsInTransit) == 0 {
@@ -147,4 +168,20 @@ func simulateAnts(paths [][]string) {
 
 	// Log the total number of turns (only count turns in which moves were executed).
 	Log(fmt.Sprintf("Total number of turns: %d\n", turn), "debug")
+}
+
+// parseMove takes a string of the form "L<antID>-<roomName>"
+// and returns the integer antID and the roomName.
+func parseMove(s string) (antID int, room string) {
+	// Split on the first dash into ["L3", "h"]
+	parts := strings.SplitN(s, "-", 2)
+	if len(parts) != 2 {
+		// malformed; you could choose to log or panic here instead
+		return 0, ""
+	}
+	// Parse the ant number from the "L3" piece
+	fmt.Sscanf(parts[0], "L%d", &antID)
+	// The second part is the room name
+	room = parts[1]
+	return
 }

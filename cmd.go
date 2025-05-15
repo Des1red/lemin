@@ -15,6 +15,8 @@ func main() {
 	internal.FindAllPaths()
 	internal.FindBestPaths()
 	internal.Simulate()
+	internal.CreateJson()
+	internal.RunVisualizer()
 
 	elapsed := time.Since(start)
 	fmt.Printf("Execution time: %s\n", elapsed)
