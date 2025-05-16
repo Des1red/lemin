@@ -20,8 +20,20 @@ func Simulate() {
 		numPaths = len(bestStepDisjointPaths)
 	}
 
-	// Run the simulation using the selected paths
-	simulateAnts(bestStepDisjointPaths[:numPaths])
+	// 1) slice out the paths we will actually use
+	paths := bestStepDisjointPaths[:numPaths]
+
+	// 2) compute each path’s “cost” (number of edges)
+	costs := make([]int, len(paths))
+	for i, p := range paths {
+		costs[i] = len(p) - 1
+	}
+
+	// 3) compute exactly how many ants each path should carry
+	antsPerPath := ComputeAntsPerPath(costs, ants)
+
+	// 4) hand off to simulateAnts (now with quotas)
+	simulateAnts(paths, antsPerPath)
 }
 
 // Ant represents the state of an ant in the simulation.
@@ -63,33 +75,14 @@ func moveAntsInTransit(antsInTransit []Ant, paths [][]string, occupied map[strin
 			// If the ant reaches the final room, do not add it back.
 		} else {
 			// If the ant couldn’t move, re-reserve its current room and keep it in transit.
-			occupied[currentRoom] = true
-			newTransit = append(newTransit, ant)
+			if currentRoom != endRoom {
+				occupied[currentRoom] = true
+				newTransit = append(newTransit, ant)
+			}
 		}
 	}
 
 	return newTransit, output
-}
-
-// spawnNewAnts checks each available path and spawns a new ant if its first room is free.
-// It returns the updated antsInTransit slice, the move commands (as strings) produced by spawning,
-// and the updated nextAnt counter.
-func spawnNewAnts(antsInTransit []Ant, paths [][]string, nextAnt int, totalAnts int, occupied map[string]bool) ([]Ant, []string, int) {
-	output := []string{}
-
-	// Try to spawn a new ant on each path (if available) for as long as there are ants to spawn.
-	for pathIndex := 0; pathIndex < len(paths) && nextAnt <= totalAnts; pathIndex++ {
-		// The spawn room is the first room after "start" (index 1).
-		if !occupied[paths[pathIndex][1]] {
-			antsInTransit = append(antsInTransit, Ant{ID: nextAnt, Path: pathIndex, Index: 1})
-			move := fmt.Sprintf("L%d-%s", nextAnt, paths[pathIndex][1])
-			output = append(output, move)
-			occupied[paths[pathIndex][1]] = true // Reserve the spawn room.
-			nextAnt++
-		}
-	}
-
-	return antsInTransit, output, nextAnt
 }
 
 // simulateAnts is the main simulation function. It repeatedly:
@@ -99,7 +92,7 @@ func spawnNewAnts(antsInTransit []Ant, paths [][]string, nextAnt int, totalAnts 
 //  4. And finally updates the turn count.
 //
 // The simulation stops when no moves occur on a turn.
-func simulateAnts(paths [][]string) {
+func simulateAnts(paths [][]string, quota []int) {
 	if len(paths) == 0 {
 		Log("no valid paths to simulate.", "error")
 		return
@@ -107,24 +100,57 @@ func simulateAnts(paths [][]string) {
 
 	// These values manage the ant simulation state.
 	antsInTransit := []Ant{}
+	spawned := make([]int, len(paths))
 	nextAnt := 1
-	turn := 1
+	turns := 0
 
 	// occupied tracks the rooms in use during the current turn.
 	occupied := make(map[string]bool)
 
 	// The simulation loop runs until no moves are produced.
 	for {
+
 		turnOutput := []string{}
 
-		// Phase 1: Move ants already in transit.
+		// Move ants already in transit.
 		var moves []string
 		antsInTransit, moves = moveAntsInTransit(antsInTransit, paths, occupied)
 		turnOutput = append(turnOutput, moves...)
 
-		// Phase 2: Spawn new ants on the paths.
-		antsInTransit, moves, nextAnt = spawnNewAnts(antsInTransit, paths, nextAnt, ants, occupied)
-		turnOutput = append(turnOutput, moves...)
+		// spawn according to quota
+		for i := range paths {
+			room := paths[i][1] // the first room after start
+			canSpawn := spawned[i] < quota[i]
+			// if it's not the end, also require that it's free
+			if room != endRoom {
+				canSpawn = canSpawn && !occupied[room]
+			}
+			if !canSpawn {
+				continue
+			}
+
+			// 1) mark that we've spawned one more on this path
+			spawned[i]++
+
+			// 2) enqueue the ant so it moves in the next phase
+			antsInTransit = append(antsInTransit, Ant{
+				ID:    nextAnt,
+				Path:  i,
+				Index: 1,
+			})
+
+			// 3) record the move (to be printed or turned into JSON)
+			move := fmt.Sprintf("L%d-%s", nextAnt, room)
+			turnOutput = append(turnOutput, move)
+
+			// 4) reserve the room **only if** it's not the end
+			if room != endRoom {
+				occupied[room] = true
+			}
+
+			// 5) bump the ant ID counter
+			nextAnt++
+		}
 
 		// If no moves were made this turn, the simulation is complete.
 		if len(turnOutput) == 0 {
@@ -144,7 +170,7 @@ func simulateAnts(paths [][]string) {
 				antID, toRoom := parseMove(str)
 				fromRoom := lastRoom[antID] // lookup where it was
 				allMoves = append(allMoves, Move{
-					Turn: turn,
+					Turn: turns,
 					Ant:  antID,
 					From: fromRoom,
 					To:   toRoom,
@@ -156,18 +182,15 @@ func simulateAnts(paths [][]string) {
 			fmt.Println(strings.Join(turnOutput, " "))
 		}
 
-		// If all ants have been spawned and none remain in transit, break early.
-		if nextAnt > ants && len(antsInTransit) == 0 {
-			break
-		}
+		turns++
 
-		turn++
 		// Reset the occupied map for the next turn.
 		occupied = make(map[string]bool)
+
 	}
 
 	// Log the total number of turns (only count turns in which moves were executed).
-	Log(fmt.Sprintf("Total number of turns: %d\n", turn), "debug")
+	Log(fmt.Sprintf("Total number of turns: %d\n", turns), "debug")
 }
 
 // parseMove takes a string of the form "L<antID>-<roomName>"
