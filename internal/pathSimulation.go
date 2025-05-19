@@ -170,7 +170,7 @@ func simulateAnts(paths [][]string, quota []int) {
 				antID, toRoom := parseMove(str)
 				fromRoom := lastRoom[antID] // lookup where it was
 				allMoves = append(allMoves, Move{
-					Turn: turns,
+					Turn: turns + 1,
 					Ant:  antID,
 					From: fromRoom,
 					To:   toRoom,

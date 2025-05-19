@@ -6,6 +6,7 @@ import (
 )
 
 type SimulationDump struct {
+	Start string `json:"start"`
 	Rooms []Room `json:"rooms"`
 	Moves []Move `json:"moves"`
 }
@@ -13,6 +14,7 @@ type SimulationDump struct {
 func CreateJson() {
 	if visualizer {
 		dump := SimulationDump{
+			Start: startRoom,
 			Rooms: make([]Room, 0, len(rooms)),
 			Moves: allMoves,
 		}
